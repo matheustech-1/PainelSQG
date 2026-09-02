@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel SGQ — Modo TV</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" onerror="window.__libFail=(window.__libFail||[]).concat('Chart.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="window.__libFail=(window.__libFail||[]).concat('SheetJS (xlsx)')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" onerror="window.__libFail=(window.__libFail||[]).concat('PapaParse')"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg-0:#0C0F14;
+    --bg-1:#141922;
+    --bg-2:#1B222E;
+    --line:#2A3342;
+    --text-0:#EDF0F5;
+    --text-1:#9AA5B8;
+    --text-2:#5E6A80;
+    --amber:#F2A93B;
+    --green:#4FBE86;
+    --yellow:#E8C547;
+    --red:#E1554F;
+    --blue:#5B8DEF;
+    --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-num: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg-0); color:var(--text-0);
+    font-family:var(--font-ui);
+    overflow:hidden;
+  }
+  ::selection{ background:var(--amber); color:#1a1305; }
+
+  /* ---------- upload screen ---------- */
+  #uploadScreen{
+    height:100vh; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(242,169,59,0.06), transparent 40%),
+      radial-gradient(circle at 80% 85%, rgba(91,141,239,0.06), transparent 40%),
+      var(--bg-0);
+  }
+  .upload-card{
+    width:min(560px, 90vw);
+    border:1px solid var(--line);
+    background:var(--bg-1);
+    border-radius:4px;
+    padding:40px;
+  }
+  .upload-eyebrow{
+    font-family:var(--font-num); font-size:12px; letter-spacing:0.08em;
+    color:var(--amber); margin-bottom:10px;
+  }
+  .upload-card h1{
+    font-size:26px; font-weight:600; margin:0 0 8px; letter-spacing:-0.01em;
+  }
+  .upload-card p.sub{
+    color:var(--text-1); font-size:14px; line-height:1.5; margin:0 0 28px;
+  }
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:3px;
+    padding:36px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--amber);
+    background:rgba(242,169,59,0.04);
+  }
+  .dropzone .icon{
+    width:36px; height:36px; margin:0 auto 14px; color:var(--text-1);
+  }
+  .dropzone .main-txt{ font-size:14px; color:var(--text-0); margin-bottom:4px; }
+  .dropzone .sub-txt{ font-size:12px; color:var(--text-2); }
+  #fileInput{ display:none; }
+  .upload-actions{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:22px; font-size:13px;
+  }
+  .link-btn{
+    background:none; border:none; color:var(--blue); cursor:pointer;
+    font-family:var(--font-ui); font-size:13px; padding:0;
+  }
+  .link-btn:hover{ text-decoration:underline; }
+  #uploadError{
+    margin-top:16px; font-size:13px; color:var(--red); display:none;
+  }
+  #uploadStatus{ margin-top:16px; font-size:13px; color:var(--text-1); display:none; }
+
+  /* ---------- dashboard shell ---------- */
+  #dashboard{ display:none; height:100vh; flex-direction:column; }
+
+  .topbar{
+    height:56px; flex:0 0 56px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 20px;
+    border-bottom:1px solid var(--line);
+    background:var(--bg-1);
+  }
+  .topbar-left{ display:flex; align-items:center; gap:12px; }
+  .plant-dot{ width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 3px rgba(79,190,134,0.15); }
+  .plant-name{ font-weight:600; font-size:14px; letter-spacing:0.01em; }
+  .plant-sub{ font-size:12px; color:var(--text-2); font-family:var(--font-num); }
+  .topbar-right{ display:flex; align-items:center; gap:18px; }
+  .clock{ font-family:var(--font-num); font-size:13px; color:var(--text-1); }
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--text-1);
+    width:30px; height:30px; border-radius:3px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:border-color .15s, color .15s;
+  }
+  .icon-btn:hover{ border-color:var(--amber); color:var(--amber); }
+  .icon-btn svg{ width:15px; height:15px; }
+  select.month-select{
+    background:var(--bg-2); color:var(--text-0); border:1px solid var(--line);
+    border-radius:3px; padding:5px 8px; font-family:var(--font-num); font-size:12px;
+  }
+
+  /* ---------- kpi strip ---------- */
+  .kpi-strip{
+    flex:0 0 96px;
+    display:grid; grid-template-columns:repeat(5, 1fr);
+    border-bottom:1px solid var(--line);
+    background:var(--bg-1);
+  }
+  .kpi{
+    padding:14px 20px;
+    border-right:1px solid var(--line);
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  .kpi:last-child{ border-right:none; }
+  .kpi-label{ font-size:11px; color:var(--text-2); text-transform:none; margin-bottom:8px; }
+  .kpi-value{ font-family:var(--font-num); font-size:26px; font-weight:600; line-height:1; }
+  .kpi-delta{ font-family:var(--font-num); font-size:12px; margin-top:6px; }
+  .kpi-delta.good{ color:var(--green); }
+  .kpi-delta.bad{ color:var(--red); }
+  .kpi-delta.neutral{ color:var(--text-2); }
+
+  /* ---------- main slide area ---------- */
+  .slide-area{ flex:1 1 auto; position:relative; overflow:hidden; }
+  .slide{
+    position:absolute; inset:0;
+    padding:20px;
+    display:none;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:16px;
+    opacity:0;
+    transition:opacity .5s ease;
+  }
+  .slide.active{ display:grid; opacity:1; }
+  .slide.span-full{ grid-column:1 / -1; }
+  .panel{
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:16px 18px 10px;
+    display:flex; flex-direction:column;
+    min-height:0;
+  }
+  .panel-head{ margin-bottom:6px; }
+  .panel-title{ font-size:13px; font-weight:600; color:var(--text-0); }
+  .panel-sub{ font-size:11px; color:var(--text-2); margin-top:2px; }
+  .panel-body{ flex:1; min-height:0; position:relative; }
+  .panel-body canvas{ position:absolute; inset:0; width:100% !important; height:100% !important; }
+
+  .slide-heading{
+    grid-column:1/-1; display:flex; align-items:baseline; gap:10px; margin-bottom:2px;
+  }
+  .slide-heading h2{ font-size:15px; font-weight:600; margin:0; }
+  .slide-heading .n{ font-family:var(--font-num); color:var(--amber); font-size:12px; }
+
+  /* kaizen list panel */
+  .kaizen-list{ list-style:none; margin:0; padding:0; overflow:auto; flex:1; }
+  .kaizen-list li{
+    padding:8px 0; border-bottom:1px solid var(--line);
+    font-size:13px; display:flex; align-items:center; gap:8px;
+  }
+  .kaizen-list li:last-child{ border-bottom:none; }
+  .kaizen-dot{ width:6px; height:6px; border-radius:50%; background:var(--amber); flex:0 0 auto; }
+  .empty-note{ color:var(--text-2); font-size:12px; padding:10px 0; }
+
+  /* ---------- bottom control bar ---------- */
+  .controlbar{
+    flex:0 0 40px;
+    display:flex; align-items:center; gap:16px;
+    padding:0 20px;
+    border-top:1px solid var(--line);
+    background:var(--bg-1);
+  }
+  .dots{ display:flex; gap:6px; }
+  .dot{
+    width:22px; height:3px; border-radius:2px; background:var(--line);
+    cursor:pointer; position:relative; overflow:hidden;
+  }
+  .dot.active{ background:var(--text-2); }
+  .dot .fill{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:var(--amber);
+  }
+  .controlbar .spacer{ flex:1; }
+  .interval-select{
+    background:var(--bg-2); color:var(--text-1); border:1px solid var(--line);
+    border-radius:3px; padding:3px 6px; font-family:var(--font-num); font-size:11px;
+  }
+  .tvmode #dashboard .topbar, .tvmode #dashboard .controlbar{ opacity:0.35; transition:opacity .2s; }
+  .tvmode #dashboard:hover .topbar, .tvmode #dashboard:hover .controlbar{ opacity:1; }
+
+  @media (max-width: 900px){
+    .kpi-strip{ grid-template-columns:repeat(2,1fr); }
+    .kpi{ border-bottom:1px solid var(--line); }
+    .slide{ grid-template-columns:1fr; grid-template-rows:auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== UPLOAD SCREEN ===================== -->
+<div id="uploadScreen">
+  <div class="upload-card">
+    <div class="upload-eyebrow">SGQ · PAINEL EM MODO TV</div>
+    <h1>Carregue a planilha de indicadores</h1>
+    <p class="sub">Envie o arquivo mensal (XLSX ou CSV) para gerar o painel. Os gráficos e o rodízio automático são montados a partir das colunas da planilha.</p>
+
+    <div class="dropzone" id="dropzone">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="main-txt">Arraste o arquivo aqui ou clique para selecionar</div>
+      <div class="sub-txt">.xlsx ou .csv — até 500 KB</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+
+    <div class="upload-actions">
+      <button class="link-btn" id="downloadTemplateBtn">Baixar modelo de planilha</button>
+      <button class="link-btn" id="loadSampleBtn">Ver com dados de exemplo</button>
+    </div>
+    <div id="uploadStatus"></div>
+    <div id="uploadError"></div>
+  </div>
+</div>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="plant-dot"></span>
+      <span class="plant-name">Painel de Qualidade</span>
+      <span class="plant-sub" id="planilhaLabel">—</span>
+    </div>
+    <div class="topbar-right">
+      <select class="month-select" id="monthSelect"></select>
+      <span class="clock" id="clock">--:--:--</span>
+      <button class="icon-btn" id="newFileBtn" title="Carregar outra planilha">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="fullscreenBtn" title="Modo TV (tela cheia)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9V5a1 1 0 011-1h4M20 9V5a1 1 0 00-1-1h-4M4 15v4a1 1 0 001 1h4M20 15v4a1 1 0 01-1 1h-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="kpi-strip" id="kpiStrip"></div>
+
+  <div class="slide-area" id="slideArea"></div>
+
+  <div class="controlbar">
+    <button class="icon-btn" id="playPauseBtn" title="Pausar rodízio">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+    </button>
+    <div class="dots" id="dots"></div>
+    <div class="spacer"></div>
+    <select class="interval-select" id="intervalSelect">
+      <option value="10000">10s / tela</option>
+      <option value="15000" selected>15s / tela</option>
+      <option value="20000">20s / tela</option>
+      <option value="30000">30s / tela</option>
+    </select>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  /* ============================================================
+     1. HEADER NORMALIZATION + COLUMN DETECTION
+     ============================================================ */
+  function normalize(s){
+    return String(s||'')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'_')
+      .replace(/^_+|_+$/g,'');
+  }
+
+  function findCol(headersNorm, testFn){
+    for(var i=0;i<headersNorm.length;i++){ if(testFn(headersNorm[i])) return i; }
+    return -1;
+  }
+
+  var MONTH_ORDER = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  function monthSortKey(label){
+    var n = normalize(label).slice(0,3);
+    var idx = MONTH_ORDER.indexOf(n);
+    return idx === -1 ? 999 : idx;
+  }
+
+  /* Parses raw rows (array of objects, original headers as keys) into the internal model */
+  function buildModel(rows){
+    if(!rows || !rows.length) throw new Error('Planilha vazia ou sem linhas de dados.');
+    var rawHeaders = Object.keys(rows[0]);
+    var norm = rawHeaders.map(normalize);
+
+    var mesIdx = findCol(norm, function(h){
+      return h.indexOf('mes')===0 || h==='month' || h==='rotulos_de_linha';
+    });
+    if(mesIdx === -1){
+      throw new Error('Não encontrei uma coluna de mês (ex: "Mes") na primeira linha da planilha. Colunas detectadas: ' + rawHeaders.slice(0,12).join(', ') + (rawHeaders.length>12?'…':'') + '. Este painel espera uma linha por mês, no formato do modelo — se sua planilha tem várias abas ou um layout diferente, ela precisa ser adaptada primeiro.');
+    }
+    var mesKey = rawHeaders[mesIdx];
+
+    function col(test){ var i = findCol(norm, test); return i===-1 ? null : rawHeaders[i]; }
+
+    var C = {
+      reclFormal: col(function(h){ return h.indexOf('reclam')>-1 && h.indexOf('form')>-1 && h.indexOf('inform')===-1; }),
+      reclInformal: col(function(h){ return h.indexOf('reclam')>-1 && h.indexOf('inform')>-1; }),
+      satVerde: col(function(h){ return h.indexOf('satisf')>-1 && h.indexOf('verde')>-1; }),
+      satAmarelo: col(function(h){ return h.indexOf('satisf')>-1 && h.indexOf('amarelo')>-1; }),
+      satVermelho: col(function(h){ return h.indexOf('satisf')>-1 && h.indexOf('vermelho')>-1; }),
+      scrapReal: col(function(h){ return h.indexOf('scrap')>-1 && h.indexOf('meta')===-1; }),
+      scrapMeta: col(function(h){ return h.indexOf('scrap')>-1 && h.indexOf('meta')>-1; }),
+      retrabReal: col(function(h){ return h.indexOf('retrab')>-1 && h.indexOf('meta')===-1; }),
+      retrabMeta: col(function(h){ return h.indexOf('retrab')>-1 && h.indexOf('meta')>-1; }),
+      cnq: col(function(h){ return h.indexOf('cnq')>-1; }),
+      estoqueDev: col(function(h){ return h.indexOf('estoque')>-1; }),
+      autocontrole: col(function(h){ return h.indexOf('autocontrole')>-1; }),
+      ncEncontradas: col(function(h){ return (h.indexOf('nc_')===0 || h==='nc' || h.indexOf('nao_conform')>-1) && h.indexOf('auditoria')===-1; }),
+      kaizen: col(function(h){ return h.indexOf('kaizen')>-1; })
+    };
+
+    var auditoriaCols = [], s5Cols = [];
+    rawHeaders.forEach(function(h,i){
+      if(norm[i].indexOf('auditoria_')===0) auditoriaCols.push(h);
+      if(norm[i].indexOf('5s_')===0 || norm[i].indexOf('s5_')===0) s5Cols.push(h);
+    });
+
+    function num(v){
+      if(v===undefined || v===null || v==='') return null;
+      if(typeof v === 'number') return v;
+      var text = String(v).trim();
+      var n = text.indexOf(',')>-1
+        ? parseFloat(text.replace(/\./g,'').replace(',','.'))
+        : parseFloat(text);
+      return isNaN(n) ? null : n;
+    }
+
+    var months = rows
+      .filter(function(r){ return r[mesKey] !== undefined && String(r[mesKey]).trim() !== ''; })
+      .map(function(r){
+        var m = {
+          label: String(r[mesKey]).trim(),
+          reclFormal: num(C.reclFormal && r[C.reclFormal]),
+          reclInformal: num(C.reclInformal && r[C.reclInformal]),
+          satVerde: num(C.satVerde && r[C.satVerde]),
+          satAmarelo: num(C.satAmarelo && r[C.satAmarelo]),
+          satVermelho: num(C.satVermelho && r[C.satVermelho]),
+          scrapReal: num(C.scrapReal && r[C.scrapReal]),
+          scrapMeta: num(C.scrapMeta && r[C.scrapMeta]),
+          retrabReal: num(C.retrabReal && r[C.retrabReal]),
+          retrabMeta: num(C.retrabMeta && r[C.retrabMeta]),
+          cnq: num(C.cnq && r[C.cnq]),
+          estoqueDev: num(C.estoqueDev && r[C.estoqueDev]),
+          autocontrole: num(C.autocontrole && r[C.autocontrole]),
+          nc: num(C.ncEncontradas && r[C.ncEncontradas]),
+          kaizenRaw: C.kaizen ? r[C.kaizen] : '',
+          auditorias: {},
+          s5: {}
+        };
+        auditoriaCols.forEach(function(h){ m.auditorias[h.replace(/^Auditoria_/i,'').replace(/_/g,' ')] = num(r[h]); });
+        s5Cols.forEach(function(h){ m.s5[h.replace(/^5S_/i,'').replace(/^S5_/i,'').replace(/_/g,' ')] = num(r[h]); });
+        return m;
+      })
+      .sort(function(a,b){ return monthSortKey(a.label) - monthSortKey(b.label); });
+
+    if(!months.length) throw new Error('Nenhuma linha com mês preenchido foi encontrada.');
+    return { months: months, hasAuditoria: auditoriaCols.length>0, has5s: s5Cols.length>0, hasKaizen: !!C.kaizen };
+  }
+
+  /* ============================================================
+     2. SAMPLE DATA + TEMPLATE DOWNLOAD
+     ============================================================ */
+  var TEMPLATE_HEADERS = ['Mes','Reclamacoes_Formais','Reclamacoes_Informais','Satisfacao_Verde','Satisfacao_Amarelo','Satisfacao_Vermelho','Scrap_Real','Scrap_Meta','Retrabalho_Real','Retrabalho_Meta','CNQ','Estoque_Dev','Autocontrole_Pct','NC_Encontradas','Auditoria_Producao','Auditoria_Almoxarifado','Auditoria_Expedicao','5S_Organizacao','5S_Limpeza','5S_Padronizacao','5S_Disciplina','5S_Utilizacao','Kaizen_Projetos'];
+
+  function sampleRows(){
+    var months = ['Jan','Fev','Mar','Abr','Mai','Jun'];
+    return months.map(function(mes, i){
+      return {
+        Mes: mes,
+        Reclamacoes_Formais: 3 + (i%3),
+        Reclamacoes_Informais: 6 + (i%4),
+        Satisfacao_Verde: 78 - i,
+        Satisfacao_Amarelo: 15 + (i%3),
+        Satisfacao_Vermelho: 7 + (i%2),
+        Scrap_Real: 420 - i*12,
+        Scrap_Meta: 350,
+        Retrabalho_Real: (3.2 - i*0.1).toFixed(1),
+        Retrabalho_Meta: 2.5,
+        CNQ: 18000 - i*900,
+        Estoque_Dev: 6200 + i*300,
+        Autocontrole_Pct: 88 + (i%3),
+        NC_Encontradas: 9 - (i%4),
+        Auditoria_Producao: 82 + (i%5),
+        Auditoria_Almoxarifado: 76 + (i%6),
+        Auditoria_Expedicao: 90 - (i%4),
+        '5S_Organizacao': 3.5 + (i%2)*0.3,
+        '5S_Limpeza': 4.0,
+        '5S_Padronizacao': 3.2 + (i%3)*0.2,
+        '5S_Disciplina': 3.8,
+        '5S_Utilizacao': 4.1 - (i%2)*0.2,
+        Kaizen_Projetos: 'Redução setup linha 2; Padronização checklist recebimento'
+      };
+    });
+  }
+
+  function downloadCSV(rows, filename){
+    var headers = TEMPLATE_HEADERS;
+    var lines = [headers.join(',')];
+    rows.forEach(function(r){
+      lines.push(headers.map(function(h){
+        var v = r[h] === undefined ? '' : r[h];
+        v = String(v);
+        if(v.indexOf(',')>-1 || v.indexOf(';')>-1) v = '"'+v+'"';
+        return v;
+      }).join(','));
+    });
+    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  /* ============================================================
+     3. UPLOAD SCREEN WIRING
+     ============================================================ */
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('fileInput');
+  var uploadError = document.getElementById('uploadError');
+  var uploadStatus = document.getElementById('uploadStatus');
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  ['dragenter','dragover'].forEach(function(ev){
+    dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', function(e){
+    var f = e.dataTransfer.files[0];
+    if(f) handleFile(f);
+  });
+  fileInput.addEventListener('change', function(e){
+    if(e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  document.getElementById('downloadTemplateBtn').addEventListener('click', function(){
+    downloadCSV(sampleRows(), 'modelo_painel_sgq.csv');
+  });
+  document.getElementById('loadSampleBtn').addEventListener('click', function(){
+    var missing = missingLibs(false, true);
+    if(missing.length){
+      showError('Não consegui carregar ' + missing.join(', ') + ' (biblioteca externa via CDN). Verifique sua conexão com a internet e recarregue a página.');
+      return;
+    }
+    try{
+      var model = buildModel(sampleRows());
+      launchDashboard(model, 'Dados de exemplo');
+    }catch(err){ showError(err.message); }
+  });
+
+  function showError(msg){
+    uploadError.textContent = msg;
+    uploadError.style.display = 'block';
+    uploadStatus.style.display = 'none';
+  }
+  function showStatus(msg){
+    uploadStatus.textContent = msg;
+    uploadStatus.style.display = 'block';
+    uploadError.style.display = 'none';
+  }
+
+  function missingLibs(needCsv, sampleOnly){
+    var missing = [];
+    if(!sampleOnly && typeof Chart === 'undefined') missing.push('Chart.js');
+    if(needCsv && typeof Papa === 'undefined') missing.push('PapaParse');
+    if(!needCsv && typeof XLSX === 'undefined') missing.push('SheetJS');
+    return missing;
+  }
+
+  function handleFile(file){
+    uploadError.style.display = 'none';
+    var name = String(file.name || '').toLowerCase();
+    var isCsv = name.endsWith('.csv');
+    var isSpreadsheet = isCsv || name.endsWith('.xlsx') || name.endsWith('.xls');
+    if(!isSpreadsheet){
+      showError('Formato não suportado. Selecione um arquivo .xlsx, .xls ou .csv.');
+      fileInput.value = '';
+      return;
+    }
+    var missing = missingLibs(isCsv);
+    if(missing.length){
+      showError('Não consegui carregar ' + missing.join(', ') + ' (biblioteca externa via CDN). Verifique sua conexão com a internet e recarregue a página. Se estiver numa rede corporativa restrita, o acesso a cdnjs.cloudflare.com pode estar bloqueado.');
+      return;
+    }
+    showStatus('Lendo "'+file.name+'"…');
+
+    if(isCsv){
+      Papa.parse(file, {
+        header:true, skipEmptyLines:true,
+        complete: function(res){
+          try{
+            var model = buildModel(res.data);
+            launchDashboard(model, file.name);
+          }catch(err){ showError(err.message); }
+        },
+        error: function(err){ showError('Não consegui ler o CSV: '+err.message); }
+      });
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var wb = XLSX.read(e.target.result, {type:'array'});
+          if(!wb.SheetNames || !wb.SheetNames.length){
+            throw new Error('A planilha não contém nenhuma aba para leitura.');
+          }
+          var sheetName = wb.SheetNames[0];
+          var matrix = [];
+          var baseSheetName = wb.SheetNames.find(function(name){
+            var normalizedName = normalize(name);
+            return normalizedName.indexOf('base')>-1 && normalizedName.indexOf('dados')>-1;
+          });
+          if(baseSheetName){
+            sheetName = baseSheetName;
+            matrix = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, defval:''});
+          } else for(var sheetIndex=0; sheetIndex<wb.SheetNames.length; sheetIndex++){
+            var candidateName = wb.SheetNames[sheetIndex];
+            var candidateSheet = wb.Sheets[candidateName];
+            var candidateMatrix = XLSX.utils.sheet_to_json(candidateSheet, {header:1, defval:''});
+            var hasMonthHeader = candidateMatrix.some(function(row){
+              return row.map(normalize).some(function(h){ return h==='mes' || h==='month'; });
+            });
+            if(hasMonthHeader){
+              sheetName = candidateName;
+              matrix = candidateMatrix;
+              break;
+            }
+          }
+          var sheet = wb.Sheets[sheetName];
+          if(!matrix.length) matrix = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+          var headerRow = -1;
+          for(var rowIndex=0; rowIndex<matrix.length; rowIndex++){
+            var rowHeaders = matrix[rowIndex].map(normalize);
+            if(rowHeaders.some(function(h){
+              return h.indexOf('mes')===0 || h==='month' || h==='rotulos_de_linha';
+            })){
+              headerRow = rowIndex;
+              break;
+            }
+          }
+          if(headerRow===-1){
+            throw new Error('Não encontrei a linha de cabeçalhos na aba "'+sheetName+'".');
+          }
+          var headerValues = matrix[headerRow];
+          var usedHeaders = {};
+          var headerKeys = headerValues.map(function(header){
+            if(header===undefined || header===null || String(header).trim()==='') return '';
+            var headerKey = String(header);
+            var headerCount = usedHeaders[headerKey] || 0;
+            usedHeaders[headerKey] = headerCount + 1;
+            return headerCount ? headerKey+'_'+headerCount : headerKey;
+          });
+          var rows = matrix.slice(headerRow+1).map(function(values){
+            var row = {};
+            headerKeys.forEach(function(headerKey, columnIndex){
+              if(headerKey){
+                row[headerKey] = values[columnIndex]===undefined ? '' : values[columnIndex];
+              }
+            });
+            return row;
+          });
+          var model = buildModel(rows);
+          launchDashboard(model, file.name);
+        }catch(err){ showError(err.message); }
+      };
+      reader.onerror = function(){ showError('Não consegui abrir o arquivo.'); };
+      reader.readAsArrayBuffer(file);
+    }
+    fileInput.value = '';
+  }
+
+  /* ============================================================
+     4. DASHBOARD STATE
+     ============================================================ */
+  var STORAGE_KEY = 'painel_sgq_dados_v1';
+  var state = { model:null, monthIdx:-1, slideIdx:0, timer:null, progressRaf:null, playing:true, intervalMs:15000, charts:[] };
+
+  function saveDashboard(model, sourceName){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ model:model, sourceName:sourceName }));
+    }catch(err){
+      // O painel continua funcionando mesmo se o navegador bloquear o armazenamento.
+    }
+  }
+
+  function restoreDashboard(){
+    try{
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if(!saved) return;
+      var data = JSON.parse(saved);
+      if(!data || !data.model || !Array.isArray(data.model.months) || !data.model.months.length) return;
+      launchDashboard(data.model, data.sourceName || 'Planilha salva');
+    }catch(err){
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+
+  function launchDashboard(model, sourceName){
+    state.model = model;
+    state.monthIdx = model.months.length - 1;
+    saveDashboard(model, sourceName);
+    document.getElementById('uploadScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'flex';
+    document.getElementById('planilhaLabel').textContent = sourceName;
+    populateMonthSelect();
+    buildSlides();
+    renderAll();
+    startClock();
+    startRotation();
+  }
+
+  function populateMonthSelect(){
+    var sel = document.getElementById('monthSelect');
+    sel.innerHTML = '';
+    state.model.months.forEach(function(m,i){
+      var o = document.createElement('option');
+      o.value = i; o.textContent = m.label;
+      if(i === state.monthIdx) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = function(){ state.monthIdx = parseInt(sel.value,10); renderAll(); };
+  }
+
+  function fmt(n, suffix){
+    if(n === null || n === undefined || isNaN(n)) return '—';
+    var v = (Math.round(n*10)/10);
+    return v + (suffix||'');
+  }
+  function fmtMoney(n){
+    if(n === null || n === undefined || isNaN(n)) return '—';
+    return 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+  }
+
+  /* ============================================================
+     5. KPI STRIP
+     ============================================================ */
+  function renderKPIs(){
+    var m = state.model.months[state.monthIdx];
+    var strip = document.getElementById('kpiStrip');
+    var reclTotal = (m.reclFormal||0) + (m.reclInformal||0);
+    var scrapDelta = (m.scrapReal!=null && m.scrapMeta!=null) ? m.scrapReal - m.scrapMeta : null;
+    var retrabDelta = (m.retrabReal!=null && m.retrabMeta!=null) ? (m.retrabReal - m.retrabMeta) : null;
+
+    var kpis = [
+      { label:'Reclamações no mês', value: reclTotal, delta:null },
+      { label:'Satisfação — verde', value: fmt(m.satVerde,'%'), delta:null },
+      { label:'Scrap real (PPM)', value: fmt(m.scrapReal), delta: scrapDelta, deltaGood: scrapDelta!=null && scrapDelta<=0, deltaLabel: scrapDelta!=null ? (scrapDelta<=0?'▼ ':'▲ ')+fmt(Math.abs(scrapDelta))+' vs meta' : null },
+      { label:'Retrabalho real (%)', value: fmt(m.retrabReal,'%'), delta: retrabDelta, deltaGood: retrabDelta!=null && retrabDelta<=0, deltaLabel: retrabDelta!=null ? (retrabDelta<=0?'▼ ':'▲ ')+fmt(Math.abs(retrabDelta))+'pp vs meta' : null },
+      { label:'NC encontradas', value: fmt(m.nc), delta:null }
+    ];
+
+    strip.innerHTML = kpis.map(function(k){
+      var deltaHtml = '';
+      if(k.deltaLabel){
+        deltaHtml = '<div class="kpi-delta '+(k.deltaGood?'good':'bad')+'">'+k.deltaLabel+'</div>';
+      }
+      return '<div class="kpi"><div class="kpi-label">'+k.label+'</div><div class="kpi-value">'+k.value+'</div>'+deltaHtml+'</div>';
+    }).join('');
+  }
+
+  /* ============================================================
+     6. CHART HELPERS
+     ============================================================ */
+  var chartDefaultsSet = false;
+  function ensureChartDefaults(){
+    if(chartDefaultsSet || typeof Chart === 'undefined') return;
+    Chart.defaults.color = '#9AA5B8';
+    Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.borderColor = '#2A3342';
+    chartDefaultsSet = true;
+  }
+
+  function destroyCharts(){ state.charts.forEach(function(c){ try{ c.destroy(); }catch(e){} }); state.charts = []; }
+
+  function mkChart(canvasId, config){
+    if(typeof Chart === 'undefined') return null;
+    var ctx = document.getElementById(canvasId);
+    if(!ctx) return null;
+    var chart = new Chart(ctx, config);
+    state.charts.push(chart);
+    return chart;
+  }
+
+  var gridOpt = { color:'#20293A', drawTicks:false };
+  var COLORS = { amber:'#F2A93B', green:'#4FBE86', yellow:'#E8C547', red:'#E1554F', blue:'#5B8DEF', text:'#9AA5B8' };
+
+  /* ============================================================
+     7. SLIDE DEFINITIONS
+     ============================================================ */
+  var SLIDES = [
+    { id:'clientes', title:'Clientes & reclamações' },
+    { id:'scrap', title:'Scrap, retrabalho e CNQ' },
+    { id:'autocontrole', title:'Autocontrole & auditoria' },
+    { id:'kaizen', title:'5S & projetos Kaizen' }
+  ];
+
+  function buildSlides(){
+    var area = document.getElementById('slideArea');
+    area.innerHTML =
+      slideHTML(0, 'clientes', [
+        panelHTML('c1','Reclamações por mês','Formais vs. informais'),
+        panelHTML('c2','Satisfação do cliente','Composição verde / amarelo / vermelho, por mês')
+      ], true) +
+
+      slideHTML(1, 'scrap', [
+        panelHTML('s1','Scrap (PPM)','Real vs. meta, por mês'),
+        panelHTML('s2','Retrabalho (%)','Real vs. meta, por mês'),
+        panelHTML('s3','CNQ e estoque de desenvolvimento','Valores em R$ por mês', true)
+      ], true) +
+
+      slideHTML(2, 'autocontrole', [
+        panelHTML('a1','Autocontrole','% de qualificação geral por mês'),
+        panelHTML('a2','Não conformidades encontradas','Total das frentes de auditoria, por mês'),
+        panelHTML('a3','Auditorias por frente','Mês selecionado', true)
+      ], true) +
+
+      slideHTML(3, 'kaizen', [
+        panelHTML('k1','Avaliação 5S','Mês selecionado, por categoria'),
+        '<div class="panel" style="grid-column:2/3"><div class="panel-head"><div class="panel-title">Projetos Kaizen</div><div class="panel-sub">Mês selecionado</div></div><div class="panel-body" id="kaizenBody"></div></div>'
+      ], true);
+
+    // dots
+    var dotsEl = document.getElementById('dots');
+    dotsEl.innerHTML = SLIDES.map(function(s,i){
+      return '<div class="dot" data-idx="'+i+'"><div class="fill" id="dotfill-'+i+'"></div></div>';
+    }).join('');
+    Array.prototype.forEach.call(dotsEl.children, function(d){
+      d.addEventListener('click', function(){ goToSlide(parseInt(d.dataset.idx,10), true); });
+    });
+  }
+
+  function slideHTML(idx, id, panelsHtml, twoRow){
+    var span3 = panelsHtml.length === 3;
+    var gridStyle = span3
+      ? 'grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr;'
+      : 'grid-template-columns:1fr 1fr; grid-template-rows:1fr;';
+    var extra = span3 ? '' : '';
+    return '<div class="slide" id="slide-'+idx+'" style="'+gridStyle+'">' + panelsHtml.join('') + '</div>';
+  }
+
+  function panelHTML(key, title, sub, full){
+    return '<div class="panel'+(full?' span-full':'')+'"><div class="panel-head"><div class="panel-title">'+title+'</div><div class="panel-sub">'+sub+'</div></div><div class="panel-body"><canvas id="chart-'+key+'"></canvas></div></div>';
+  }
+
+  /* ============================================================
+     8. RENDER ALL CHARTS
+     ============================================================ */
+  function renderAll(){
+    ensureChartDefaults();
+    renderKPIs();
+    destroyCharts();
+
+    var months = state.model.months;
+    var labels = months.map(function(m){ return m.label; });
+    var m = months[state.monthIdx];
+
+    // -- Slide 1: clientes
+    mkChart('chart-c1', {
+      type:'bar',
+      data:{ labels: labels, datasets:[
+        { label:'Formais', data: months.map(function(x){return x.reclFormal;}), backgroundColor: COLORS.red },
+        { label:'Informais', data: months.map(function(x){return x.reclInformal;}), backgroundColor: COLORS.amber }
+      ]},
+      options: baseOpts({ stacked:false, legend:true })
+    });
+    mkChart('chart-c2', {
+      type:'bar',
+      data:{ labels: labels, datasets:[
+        { label:'Verde', data: months.map(function(x){return x.satVerde;}), backgroundColor: COLORS.green },
+        { label:'Amarelo', data: months.map(function(x){return x.satAmarelo;}), backgroundColor: COLORS.yellow },
+        { label:'Vermelho', data: months.map(function(x){return x.satVermelho;}), backgroundColor: COLORS.red }
+      ]},
+      options: baseOpts({ stacked:true, legend:true, suffix:'%' })
+    });
+
+    // -- Slide 2: scrap
+    mkChart('chart-s1', {
+      type:'line',
+      data:{ labels: labels, datasets:[
+        { label:'Real', data: months.map(function(x){return x.scrapReal;}), borderColor: COLORS.amber, backgroundColor:'transparent', tension:0.3 },
+        { label:'Meta', data: months.map(function(x){return x.scrapMeta;}), borderColor: COLORS.text, borderDash:[4,4], backgroundColor:'transparent', tension:0.3, pointRadius:0 }
+      ]},
+      options: baseOpts({ legend:true })
+    });
+    mkChart('chart-s2', {
+      type:'line',
+      data:{ labels: labels, datasets:[
+        { label:'Real', data: months.map(function(x){return x.retrabReal;}), borderColor: COLORS.blue, backgroundColor:'transparent', tension:0.3 },
+        { label:'Meta', data: months.map(function(x){return x.retrabMeta;}), borderColor: COLORS.text, borderDash:[4,4], backgroundColor:'transparent', tension:0.3, pointRadius:0 }
+      ]},
+      options: baseOpts({ legend:true, suffix:'%' })
+    });
+    mkChart('chart-s3', {
+      type:'bar',
+      data:{ labels: labels, datasets:[
+        { label:'CNQ', data: months.map(function(x){return x.cnq;}), backgroundColor: COLORS.red },
+        { label:'Estoque desenvolvimento', data: months.map(function(x){return x.estoqueDev;}), backgroundColor: COLORS.amber }
+      ]},
+      options: baseOpts({ legend:true, money:true })
+    });
+
+    // -- Slide 3: autocontrole
+    mkChart('chart-a1', {
+      type:'line',
+      data:{ labels: labels, datasets:[
+        { label:'Autocontrole', data: months.map(function(x){return x.autocontrole;}), borderColor: COLORS.green, backgroundColor:'rgba(79,190,134,0.12)', fill:true, tension:0.3 }
+      ]},
+      options: baseOpts({ suffix:'%' })
+    });
+    mkChart('chart-a2', {
+      type:'bar',
+      data:{ labels: labels, datasets:[
+        { label:'NC', data: months.map(function(x){return x.nc;}), backgroundColor: COLORS.red }
+      ]},
+      options: baseOpts({})
+    });
+    var frentes = Object.keys(m.auditorias);
+    mkChart('chart-a3', {
+      type:'bar',
+      data:{ labels: frentes.length?frentes:['Sem dados'], datasets:[
+        { label:'% qualificação', data: frentes.length?frentes.map(function(f){return m.auditorias[f];}):[0], backgroundColor: COLORS.blue }
+      ]},
+      options: Object.assign(baseOpts({ suffix:'%' }), { indexAxis:'y' })
+    });
+
+    // -- Slide 4: 5S + kaizen
+    var s5Keys = Object.keys(m.s5);
+    if(s5Keys.length){
+      var radarBody = document.querySelector('#slide-3 .panel .panel-body');
+      radarBody.innerHTML = '<canvas id="chart-k1"></canvas>';
+      mkChart('chart-k1', {
+        type:'radar',
+        data:{ labels: s5Keys, datasets:[
+          { label:'Pontuação', data: s5Keys.map(function(k){return m.s5[k];}), borderColor: COLORS.amber, backgroundColor:'rgba(242,169,59,0.18)', pointBackgroundColor: COLORS.amber }
+        ]},
+        options: { responsive:true, maintainAspectRatio:false, scales:{ r:{ grid:{color:'#20293A'}, angleLines:{color:'#20293A'}, pointLabels:{color:'#9AA5B8', font:{size:10}}, ticks:{ display:false } } }, plugins:{ legend:{display:false} } }
+      });
+    } else {
+      document.querySelector('#slide-3 .panel .panel-body').innerHTML = '<div class="empty-note">Nenhuma coluna 5S encontrada na planilha.</div>';
+    }
+
+    var kaizenBody = document.getElementById('kaizenBody');
+    var projetos = (m.kaizenRaw || '').split(';').map(function(s){return s.trim();}).filter(Boolean);
+    if(projetos.length){
+      kaizenBody.innerHTML = '<ul class="kaizen-list">' + projetos.map(function(p){ return '<li><span class="kaizen-dot"></span>'+p+'</li>'; }).join('') + '</ul>';
+    } else {
+      kaizenBody.innerHTML = '<div class="empty-note">Nenhum projeto Kaizen cadastrado para este mês.</div>';
+    }
+  }
+
+  function baseOpts(opts){
+    opts = opts || {};
+    return {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ intersect:false, mode:'index' },
+      plugins:{
+        legend:{ display: !!opts.legend, position:'top', align:'end', labels:{ boxWidth:10, boxHeight:10, padding:12 } },
+        tooltip:{ backgroundColor:'#1B222E', borderColor:'#2A3342', borderWidth:1, titleColor:'#EDF0F5', bodyColor:'#EDF0F5',
+          callbacks: opts.money ? { label:function(ctx){ return ctx.dataset.label+': R$ '+ (ctx.parsed.y||0).toLocaleString('pt-BR'); } } : undefined }
+      },
+      scales:{
+        x:{ stacked: !!opts.stacked, grid:{ display:false } },
+        y:{ stacked: !!opts.stacked, grid: gridOpt, ticks:{ callback:function(v){ return v + (opts.suffix||''); } } }
+      }
+    };
+  }
+
+  /* ============================================================
+     9. ROTATION / SLIDES CONTROL
+     ============================================================ */
+  function goToSlide(idx, manualReset){
+    document.querySelectorAll('.slide').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('slide-'+idx).classList.add('active');
+    document.querySelectorAll('.dot').forEach(function(d,i){ d.classList.toggle('active', i===idx); });
+    state.slideIdx = idx;
+    if(manualReset) restartProgress();
+  }
+
+  function startRotation(){
+    goToSlide(0);
+    restartProgress();
+  }
+
+  function restartProgress(){
+    if(state.progressRaf) cancelAnimationFrame(state.progressRaf);
+    document.querySelectorAll('.dot .fill').forEach(function(f,i){ f.style.width = i < state.slideIdx ? '100%' : '0%'; });
+    if(!state.playing) return;
+    var start = performance.now();
+    var dur = state.intervalMs;
+    var fillEl = document.getElementById('dotfill-'+state.slideIdx);
+    function step(now){
+      var pct = Math.min(100, ((now-start)/dur)*100);
+      if(fillEl) fillEl.style.width = pct+'%';
+      if(pct >= 100){
+        var next = (state.slideIdx+1) % SLIDES.length;
+        goToSlide(next);
+        restartProgress();
+        return;
+      }
+      state.progressRaf = requestAnimationFrame(step);
+    }
+    state.progressRaf = requestAnimationFrame(step);
+  }
+
+  document.getElementById('playPauseBtn').addEventListener('click', function(){
+    state.playing = !state.playing;
+    this.innerHTML = state.playing
+      ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7V5z"/></svg>';
+    this.title = state.playing ? 'Pausar rodízio' : 'Retomar rodízio';
+    if(state.playing) restartProgress();
+    else if(state.progressRaf) cancelAnimationFrame(state.progressRaf);
+  });
+
+  document.getElementById('intervalSelect').addEventListener('change', function(){
+    state.intervalMs = parseInt(this.value,10);
+    restartProgress();
+  });
+
+  document.getElementById('fullscreenBtn').addEventListener('click', function(){
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen().catch(function(){});
+      document.body.classList.add('tvmode');
+    } else {
+      document.exitFullscreen();
+      document.body.classList.remove('tvmode');
+    }
+  });
+
+  document.getElementById('newFileBtn').addEventListener('click', function(){
+    if(state.progressRaf) cancelAnimationFrame(state.progressRaf);
+    destroyCharts();
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('uploadScreen').style.display = 'flex';
+    fileInput.value = '';
+    uploadError.style.display = 'none';
+    uploadStatus.style.display = 'none';
+  });
+
+  function startClock(){
+    var el = document.getElementById('clock');
+    function tick(){
+      var d = new Date();
+      el.textContent = d.toLocaleTimeString('pt-BR');
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  restoreDashboard();
+
+})();
+</script>
+</body>
+</html>
