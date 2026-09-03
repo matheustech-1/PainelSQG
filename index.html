@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qualidade BI | Central de indicadores</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .presentation{background:#0d121a;padding:10px 20px 8px}
+    .presentation-bar{height:37px;border-bottom:1px solid #273242}
+    .presentation-bar .brand-mark{background:#54c98d;color:#0d121a;width:21px;height:21px;border-radius:50%;font-size:13px}
+    .presentation-bar .brand strong{font:700 13px 'DM Sans'}
+    .presentation-bar span{color:#9aa9bc}
+    .slide-stage{height:calc(100vh - 88px);gap:12px}
+    .slide{width:100%;height:100%;display:block}
+    .slide-dashboard{height:100%;display:flex;flex-direction:column;gap:16px;padding:14px 0}
+    .slide-kpis{display:grid;grid-template-columns:repeat(5,1fr);min-height:88px;border:1px solid #293547;background:#141b25}
+    .slide-kpis span{padding:17px 18px;border-right:1px solid #293547}
+    .slide-kpis span:last-child{border-right:0}
+    .slide-kpis small{display:block;color:#7190b7;font-size:10px;margin-bottom:8px}
+    .slide-kpis b{font:700 28px 'Space Grotesk';color:#f3f7fc}
+    .slide-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-height:0}
+    .slide-panel{border:1px solid #293547;background:#141b25;padding:16px 18px;min-width:0}
+    .slide-panel h3{font:700 14px 'DM Sans';margin:0 0 5px}
+    .slide-panel small{color:#6d86a5;font-size:10px;display:block}
+    .slide-panel canvas{height:calc(100% - 40px)!important;width:100%!important;margin-top:8px}
+    .slide-panel{height:calc(100vh - 190px);min-height:360px}
+    .slide-panel canvas{display:block;height:calc(100% - 45px)!important;max-height:430px}
+    .dashboard-view.view-quality .chart-grid{grid-template-columns:1fr 1fr}
+    .dashboard-view.view-quality .chart-grid .wide{display:none}
+    .dashboard-view.view-quality .lower-grid{grid-template-columns:1.35fr 1fr}
+    .dashboard-view.view-quality .table-panel{display:none}
+    .dashboard-view.view-actions .chart-grid{display:none}
+    .dashboard-view.view-actions .lower-grid{grid-template-columns:1fr 1.6fr}
+    .dashboard-view.view-actions .lower-grid .chart-panel{display:none}
+    .slide-arrow{border:1px solid #2c394c;background:#141b25;border-radius:4px;width:32px;height:38px;font-size:18px}
+    .presentation-footer{height:35px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #273242}
+    .presentation-footer .slide-dots{text-align:left}
+    .presentation-footer .slide-dots button{width:21px;height:3px;border:0;border-radius:0;background:#334052;margin:0 4px 0 0}
+    .presentation-footer .slide-dots button.active{background:#e8a936}
+    .auto-label{font-size:10px;color:#71829a}
+    @media(max-width:600px){.presentation{padding:8px}.slide-stage{gap:4px}.slide-dashboard{padding:5px 0;gap:8px}.slide-kpis{min-height:70px}.slide-kpis span{padding:10px 7px}.slide-kpis small{font-size:7px}.slide-kpis b{font-size:16px}.slide-panels{gap:7px}.slide-panel{padding:10px 7px}.slide-panel h3{font-size:10px}.slide-panel small{font-size:8px}.slide-arrow{width:25px;height:31px;font-size:14px}.auto-label{display:none}}
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">Q</span><div><strong>qualidade</strong><small>intelligence hub</small></div></div>
+      <nav><button class="nav-item active" data-view="overview"><span>◈</span> Visão geral</button><button class="nav-item" data-view="quality"><span>◌</span> Qualidade</button><button class="nav-item" data-view="actions"><span>↗</span> Ações & kaizen</button></nav>
+      <div class="sidebar-foot"><span class="live-dot"></span><span>Dados atualizados<br><b id="last-updated">agora</b></span></div>
+    </aside>
+    <main class="main-content">
+      <header class="topbar"><div><p class="eyebrow">PAINEL EXECUTIVO / QUALIDADE</p><h1 id="page-title">Visão geral</h1></div><div class="top-actions"><label class="upload-btn" title="Carregar planilha"><span>＋</span> Adicionar planilha<input id="file-input" type="file" accept=".xlsx,.xls,.csv" /></label><button class="icon-btn" id="presentation-btn" title="Abrir apresentação">▣</button></div></header>
+      <section class="toolbar"><div class="source-badge"><span class="file-icon">×</span><div><b id="source-name">Modo demonstração</b><small id="source-meta">Dados sintéticos para explorar o painel</small></div></div><div class="filters"><label>Período<select id="period-filter"><option value="all">Todos os períodos</option></select></label><label>Visão<select id="metric-filter"><option value="all">Todos os indicadores</option></select></label><button class="reset-btn" id="reset-btn">↺ Limpar</button></div></section>
+      <div id="status" class="status" hidden></div>
+      <section id="dashboard" class="dashboard-view">
+        <div class="section-heading"><div><p class="eyebrow">SINAL DA OPERAÇÃO</p><h2>Resumo dos resultados</h2></div><span class="period-label" id="period-label">Últimos 12 períodos</span></div>
+        <div class="kpi-grid" id="kpi-grid"></div>
+        <div class="chart-grid"><article class="panel chart-panel wide"><div class="panel-head"><div><span class="panel-kicker">TENDÊNCIA</span><h3>Indicadores ao longo do tempo</h3></div><div class="legend" id="trend-legend"></div></div><div class="chart-wrap"><canvas id="trend-chart"></canvas></div></article><article class="panel chart-panel"><div class="panel-head"><div><span class="panel-kicker">DISTRIBUIÇÃO</span><h3>Saúde da satisfação</h3></div></div><div class="donut-area"><canvas id="satisfaction-chart"></canvas><div class="donut-center"><strong id="satisfaction-score">86%</strong><span>verde</span></div></div><div class="legend vertical" id="satisfaction-legend"></div></article></div>
+        <div class="lower-grid"><article class="panel chart-panel"><div class="panel-head"><div><span class="panel-kicker">CONFORMIDADE</span><h3>Auditorias por frente</h3></div></div><div class="chart-wrap short"><canvas id="audit-chart"></canvas></div></article><article class="panel table-panel"><div class="panel-head"><div><span class="panel-kicker">DETALHAMENTO</span><h3>Dados carregados</h3></div><span class="row-count" id="row-count">0 linhas</span></div><div class="table-scroll"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div></article></div>
+      </section>
+    </main>
+  </div>
+  <div class="presentation" id="presentation" hidden><div class="presentation-bar"><div class="brand"><span class="brand-mark">Q</span><strong>qualidade / apresentação</strong></div><div><span id="slide-counter">01 / 03</span><button class="icon-btn light" id="close-presentation" title="Fechar apresentação">×</button></div></div><div class="slide-stage"><button class="slide-arrow" id="prev-slide">←</button><div class="slide" id="slide-content"></div><button class="slide-arrow" id="next-slide">→</button></div><div class="presentation-footer"><div class="slide-dots" id="slide-dots"></div><span class="auto-label">● reprodução automática · 15s / tela</span></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script src="app.js"></script>
+</body>
+</html>
